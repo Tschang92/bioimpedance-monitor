@@ -11,6 +11,10 @@
  * By using this software you agree to the terms of the associated
  * Analog Devices Software License Agreement.
 **/
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef _AD5940_H_
 #define _AD5940_H_
 #include "math.h"
@@ -4930,4 +4934,8 @@ uint32_t  AD5940_MCUResourceInit(void *pCfg);
   * @} AD5940_Library
   */
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

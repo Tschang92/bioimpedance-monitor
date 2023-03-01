@@ -20,6 +20,7 @@ This code is based off Analog Devices' examples
 #include <LibPrintf.h>
 #include <SPI.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <math.h>
 #include <BIOZ-2Wire.h>
@@ -39,12 +40,14 @@ int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
   float freq;
   fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
   AppBIOZCtrl(BIOZCTRL_GETFREQ, &freq);    //Get Frequency and write it to the address of freq
+  
   printf("Freq: %.2f, ", freq);
 
   /* Process data */
   for (int i = 0; i < DataCount; i++)
   {
-    printf ("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp2[i].Real, pImp2[i].Image);
+    
+    printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp2[i].Real, pImp2[i].Image);
   }
   return 0;
 }
@@ -84,11 +87,12 @@ static int32_t AD5940PlaformCfg(void)
   /* Step3. Interrupt Controller */
   AD5940_INTCCfg(AFEINTC_1, AFEINTSRC_ALLINT, bTRUE); // Enable all interrup in Interrupt Controller 1, so we can check INTC flags
   AD5940_INTCCfg(AFEINTC_0, AFEINTSRC_DATAFIFOTHRESH, bTRUE); // Interrupt Controller 0 will control GP0 to generate interrupt to MCU
+  AD5940_INTCClrFlag(AFEINTSRC_ALLINT); // nötig?
 
   /* Step 4. Reconfigure GPIO */
   gpio_cfg.FuncSet = GP6_SYNC | GP5_SYNC | GP4_SYNC | GP2_TRIG | GP1_SYNC | GP0_INT;
   gpio_cfg.InputEnSet = AGPIO_Pin2;
-  gpio_cfg.OutputEnSet = AGPIO_Pin0|AGPIO_Pin1|AGPIO_Pin4|AGPIO_Pin5|AGPIO_Pin6;
+  gpio_cfg.OutputEnSet = AGPIO_Pin0 | AGPIO_Pin1 | AGPIO_Pin4 | AGPIO_Pin5 | AGPIO_Pin6;
   gpio_cfg.OutVal = 0;
   gpio_cfg.PullEnSet = 0;
 
@@ -106,9 +110,15 @@ void AD5940BIOZStructInit(void)
   pBIOZCfg->SeqStartAddr = 0;
   pBIOZCfg->MaxSeqLen = 512;
 
+  pBIOZCfg->RcalVal = 10000.0;
+  pBIOZCfg->DftNum = DFTNUM_8192;
+  pBIOZCfg->BIOZODR = 10;  /* ODR (Sample Rate) 5 Hz */
+  pBIOZCfg->FifoThresh = 4;
+  pBIOZCfg->NumOfData = -1; /* Never Stop, until you stop in manually by AppBIOZCtrl() function */
   pBIOZCfg->SinFreq = 100000.0; /* 100kHz, Value is ignored if SweepEn = bTRUE */
   pBIOZCfg->RcalVal = 10000.0;  /* Value of RCAL in Circuit */
-  pBIOZCfg->HstiaRtiaSel = HSTIARTIA_200;
+  //pBIOZCfg->HstiaRtiaSel = HSTIARTIA_200;
+  pBIOZCfg->ADCSinc3Osr = ADCSINC3OSR_2;
 
   /* Configure Switch matrix */
   pBIOZCfg->DswitchSel = SWD_CE0; // Measuring Lead 1
@@ -122,9 +132,8 @@ void AD5940BIOZStructInit(void)
   pBIOZCfg->SweepCfg.SweepStop = 200000.0;
   pBIOZCfg->SweepCfg.SweepPoints = 100; /* Max is 100 */
   pBIOZCfg->SweepCfg.SweepLog = bFALSE;
-
-  pBIOZCfg->BIOZODR = 5;  /* ODR (Sample Rate) 5 Hz */
-  pBIOZCfg->NumOfData = -1; /* Never Stop, until you stop in manually by AppBIOZCtrl() function */
+  pBIOZCfg->PwrMod = AFEPWR_HP;
+  
 }
 
 
@@ -142,11 +151,20 @@ void setup() {
 
 void loop() {
   /* Check if interrupt flag which will be set when interrupt occured */
+  //printf("Test\n");
   if(AD5940_GetMCUIntFlag())
   {
+    IntCount++;
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
     AppBIOZISR(AppBuff, &temp); /* Deal with it and provide a buffer to store data we got */
     BIOZShowResult(AppBuff, temp); /* Show the result to UART */
+
+    if (IntCount == 240)
+    {
+      IntCount = 0;
+      //AppBIOZCtrl(BIOZCTRL_SHUTDOWN, 0);
+    }
   }
+  count++;
 }

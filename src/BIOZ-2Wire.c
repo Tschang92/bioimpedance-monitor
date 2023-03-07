@@ -86,6 +86,8 @@ AD5940Err AppBIOZCtrl(int32_t BcmCtrl, void *pPara)
   {
   case BIOZCTRL_START:
     {
+      /* Set Measurement running flag */
+      //int MEAS
       WUPTCfg_Type wupt_cfg;
       if(AD5940_WakeUp(10) > 10)  /* Wakeup AFE by read register, read 10 times at most */
         return AD5940ERR_WAKEUP;  /* Wakeup Failed */

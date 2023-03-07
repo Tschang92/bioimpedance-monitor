@@ -31,6 +31,19 @@ uint32_t temp;
 #define APPBUFF_SIZE 512
 uint32_t AppBuff[APPBUFF_SIZE];
 
+#define LED_GREEN 12
+#define LED_YELLOW 11
+#define LED_RED LED_BUILTIN
+
+
+/* Measurement active status */
+void isActive(void)
+{
+  AppBIOZCfg_Type *pBIOZCfg;
+  if (AppBIOZGetCfg(&pBIOZCfg->BIOZInited) == bTRUE);
+    digitalWrite(LED_YELLOW, HIGH);
+}
+
 /* print results to UART */
 int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
 {
@@ -50,6 +63,44 @@ int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
   }
   return 0;
 }
+
+/* Tissue Classification */
+
+void isEpidural(uint32_t *pData, uint32_t DataCount)
+{
+  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+
+  // feed data into kNN Model
+
+  // Test
+  for (int i = 0; i < DataCount; i++)
+  {
+    if (pImp2[i].Real >= 40000.0)
+      digitalWrite(LED_GREEN, HIGH);
+    else
+      digitalWrite(LED_GREEN, LOW);
+  }
+}
+
+void isCSF(uint32_t *pData, uint32_t DataCount)
+{
+  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+
+  // feed data into kNN Model
+
+  // Test
+  for (int i = 0; i < DataCount; i++)
+  {
+    if (pImp2[i].Real < 40000.0)
+    {
+      digitalWrite(LED_GREEN, LOW);
+      digitalWrite(LED_RED, HIGH);
+    }
+    else
+      digitalWrite(LED_RED, LOW);
+  }
+}
+
 
 /* Initialize AD5940 basic blocks like clock */
 static int32_t AD5940PlatformCfg(void)
@@ -139,6 +190,11 @@ void AD5940BIOZStructInit(void)
 
 void setup()
 {
+
+  // Configure LED pins
+  pinMode(LED_GREEN, OUTPUT); 
+  pinMode(LED_YELLOW, OUTPUT);
+
   MCUPlatformInit(0);
   AD5940_MCUResourceInit(0);
   // AD5940_HWReset();
@@ -147,10 +203,15 @@ void setup()
   AD5940BIOZStructInit();             /* Configure your parameters in this function */
   AppBIOZInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
   AppBIOZCtrl(BIOZCTRL_START, 0);      /* Control BIOZ measurement to start. Second parameter has no meaning with this command. */
+
+  // Indicate running system
+  isActive();
+
 }
 
 void loop()
 {
+  
   /* Check if interrupt flag which will be set when interrupt occurred. */
   if (AD5940_GetMCUIntFlag())
   {
@@ -160,62 +221,16 @@ void loop()
     AppBIOZISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
     BIOZShowResult(AppBuff, temp); /* Show the results to UART */
 
+    // Check for Epidural Tissue at Needle Tip
+    isEpidural(AppBuff, temp);
+
+    // CHeck for CSF at Needle Tip
+    isCSF(AppBuff, temp);
+
     if (IntCount == 240)
     {
       IntCount = 0;
       // AppBIOZCtrl(BIOZCTRL_SHUTDOWN, 0);
     }
   }
-  count++;
-  if (count > 1000000)
-  {
-    count = 0;
-    // AppBIOZInit(0, 0);    /* Re-initialize BIOZ application. Because sequences are ready, no need to provide a buffer, which is used to store sequencer commands */
-    // AppBIOZCtrl(BIOZCTRL_START, 0);          /* Control BIOZ measurement to start. Second parameter has no meaning with this command. */
-  }
-}
-
-// void setup()
-// {
-//   static uint32_t IntCount;
-//   static uint32_t count;
-//   uint32_t temp;
-//   MCUPlatformInit(0);
-//   AD5940_MCUResourceInit(0);
-//   AD5940PlatformCfg();
-  
-//   AD5940BIOZStructInit(); /* Configure your parameters in this function */
-  
-//   AppBIOZInit(AppBuff, APPBUFF_SIZE);    /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
-//   AppBIOZCtrl(BIOZCTRL_START, 0);         /* Control BIOZ measurement to start. Second parameter has no meaning with this command. */
- 
-//   while(1)
-//   {
-//     /* Check if interrupt flag which will be set when interrupt occurred. */
-//     if(AD5940_GetMCUIntFlag())
-//     {
-//       IntCount++;
-//       AD5940_ClrMCUIntFlag(); /* Clear this flag */
-//       temp = APPBUFF_SIZE;
-//       AppBIOZISR(AppBuff, &temp); /* Deal with it and provide a buffer to store data we got */
-//       BIOZShowResult(AppBuff, temp); /* Show the results to UART */
-
-//       if(IntCount == 240)
-//       {
-//         IntCount = 0;
-//         //AppBIOZCtrl(BIOZCTRL_SHUTDOWN, 0);
-//       }
-//     }
-//     count++;
-//     if(count > 1000000)
-//     {
-//       count = 0;
-//       //AppBIOZInit(0, 0);    /* Re-initialize BIOZ application. Because sequences are ready, no need to provide a buffer, which is used to store sequencer commands */
-//       //AppBIOZCtrl(BIOZCTRL_START, 0);          /* Control BIOZ measurement to start. Second parameter has no meaning with this command. */
-//     }
-//   }
-// }
-
-// void loop() {
-//   ;
-// }
+} 

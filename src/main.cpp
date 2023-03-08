@@ -20,7 +20,7 @@ This software is based on Analog Devices' example code.
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "BIOZ-2Wire.h""
+#include "BIOZ-2Wire.h"
 
 uint32_t MCUPlatformInit(void *pCfg);
 
@@ -34,14 +34,88 @@ uint32_t AppBuff[APPBUFF_SIZE];
 #define LED_GREEN 12
 #define LED_YELLOW 11
 #define LED_RED LED_BUILTIN
+#define BUTTON_PIN 9
+
+const long blinkInterval = 500;
 
 
-/* Measurement active status */
-void isActive(void)
+/* Start /Stop measuring with pushbutton with debouncing test */
+int buttonState;
+int lastButtonState = LOW;
+int measState = -1;   // state of measurement, active measurement = 1, inactive measurement = -1
+
+unsigned long lastDebounceTime = 0;
+unsigned long debounceDelay = 50;
+
+/* ToggleMeas starts or stops the measurement based on lastButtonState. */
+void ToggleMeas(void)
 {
+  int reading = digitalRead(BUTTON_PIN);
+  if (reading != lastButtonState) 
+  {
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay)
+  {
+    if (reading != buttonState)
+    {
+      buttonState = reading;
+
+      /* Start Measurement */
+      if ( (buttonState == HIGH) && (measState < 0) ) 
+      {
+        AppBIOZCtrl(BIOZCTRL_START, 0);
+        measState = -measState;
+      }
+      /* Stop Measurement */
+      else if ( (buttonState == HIGH) && (measState > 0) ) 
+      {
+        AppBIOZCtrl(BIOZCTRL_STOPNOW, 0);
+        measState = -measState;
+      }
+    }
+  }
+  // Remember Button State
+  lastButtonState = reading;
+}
+
+unsigned long previousMillis = 0;
+int readyLEDstate = LOW;
+
+
+/* enables standby mode, makes yellow LED blink and deactivates other LEDs and buzzer to indicate standby state */
+void standby(void)
+{
+
+  /* Check if Application Parameters are initialized */
   AppBIOZCfg_Type *pBIOZCfg;
   if (AppBIOZGetCfg(&pBIOZCfg->BIOZInited) == bTRUE);
-    digitalWrite(LED_YELLOW, HIGH);
+  {
+
+   unsigned long currentMillis = millis();
+
+   /* deactivate LEDs */
+   digitalWrite(LED_GREEN, LOW);
+   digitalWrite(LED_RED, LOW);
+   //digitalWrite(BUZZER, LOW);
+
+   /* Blink Standy LED */
+    if (currentMillis - previousMillis >= blinkInterval)
+    {
+      previousMillis = currentMillis;
+
+      if (readyLEDstate == LOW) 
+      {
+        readyLEDstate = HIGH;
+      }
+      else
+      {
+        readyLEDstate = LOW;
+      }
+      digitalWrite(LED_YELLOW, readyLEDstate);
+    }   
+  }
 }
 
 /* print results to UART */
@@ -194,6 +268,7 @@ void setup()
   // Configure LED pins
   pinMode(LED_GREEN, OUTPUT); 
   pinMode(LED_YELLOW, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLDOWN);
 
   MCUPlatformInit(0);
   AD5940_MCUResourceInit(0);
@@ -202,16 +277,29 @@ void setup()
   AD5940PlatformCfg();
   AD5940BIOZStructInit();             /* Configure your parameters in this function */
   AppBIOZInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
-  AppBIOZCtrl(BIOZCTRL_START, 0);      /* Control BIOZ measurement to start. Second parameter has no meaning with this command. */
+  //AppBIOZCtrl(BIOZCTRL_START, 0);      /* Control BIOZ measurement to start. Second parameter has no meaning with this command. */
 
-  // Indicate running system
-  isActive();
 
 }
 
 void loop()
 {
   
+  // Check for measurement state
+  if(measState == -1)
+  {
+    standby();
+  }
+  else
+  {
+    digitalWrite(LED_YELLOW, HIGH); // Not nice, maybe use switch cases?
+  }
+
+  ToggleMeas();
+
+ 
+
+
   /* Check if interrupt flag which will be set when interrupt occurred. */
   if (AD5940_GetMCUIntFlag())
   {

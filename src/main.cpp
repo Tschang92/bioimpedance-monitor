@@ -23,9 +23,6 @@ This software is based on Analog Devices' example code.
 #include "BIOZ-2Wire.h"
 
 uint32_t MCUPlatformInit(void *pCfg);
-
-static uint32_t IntCount;
-static uint32_t count;
 uint32_t temp;
 
 #define APPBUFF_SIZE 512
@@ -36,147 +33,10 @@ uint32_t AppBuff[APPBUFF_SIZE];
 #define LED_RED LED_BUILTIN
 #define BUTTON_PIN 9
 
-const long blinkInterval = 500;
 
 
-/* Start /Stop measuring with pushbutton with debouncing test */
-int buttonState;
-int lastButtonState = LOW;
-int measState = -1;   // state of measurement, active measurement = 1, inactive measurement = -1
+/****************************** Initialize AD5940 basic blocks like clock ************************************/
 
-unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 50;
-
-/* ToggleMeas starts or stops the measurement based on lastButtonState. */
-void ToggleMeas(void)
-{
-  int reading = digitalRead(BUTTON_PIN);
-  if (reading != lastButtonState) 
-  {
-    lastDebounceTime = millis();
-  }
-
-  if ((millis() - lastDebounceTime) > debounceDelay)
-  {
-    if (reading != buttonState)
-    {
-      buttonState = reading;
-
-      /* Start Measurement */
-      if ( (buttonState == HIGH) && (measState < 0) ) 
-      {
-        AppBIOZCtrl(BIOZCTRL_START, 0);
-        measState = -measState;
-      }
-      /* Stop Measurement */
-      else if ( (buttonState == HIGH) && (measState > 0) ) 
-      {
-        AppBIOZCtrl(BIOZCTRL_STOPNOW, 0);
-        measState = -measState;
-      }
-    }
-  }
-  // Remember Button State
-  lastButtonState = reading;
-}
-
-unsigned long previousMillis = 0;
-int readyLEDstate = LOW;
-
-
-/* enables standby mode, makes yellow LED blink and deactivates other LEDs and buzzer to indicate standby state */
-void standby(void)
-{
-
-  /* Check if Application Parameters are initialized */
-  AppBIOZCfg_Type *pBIOZCfg;
-  if (AppBIOZGetCfg(&pBIOZCfg->BIOZInited) == bTRUE);
-  {
-
-   unsigned long currentMillis = millis();
-
-   /* deactivate LEDs */
-   digitalWrite(LED_GREEN, LOW);
-   digitalWrite(LED_RED, LOW);
-   //digitalWrite(BUZZER, LOW);
-
-   /* Blink Standy LED */
-    if (currentMillis - previousMillis >= blinkInterval)
-    {
-      previousMillis = currentMillis;
-
-      if (readyLEDstate == LOW) 
-      {
-        readyLEDstate = HIGH;
-      }
-      else
-      {
-        readyLEDstate = LOW;
-      }
-      digitalWrite(LED_YELLOW, readyLEDstate);
-    }   
-  }
-}
-
-/* print results to UART */
-int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
-{
-  float freq;
-
-  //fImpPol_Type *pImp = (fImpPol_Type *)pData;
-  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
-  AppBIOZCtrl(BIOZCTRL_GETFREQ, &freq);
-
-  printf("Freq: %.2f, ", freq);
-  /*Process data*/
-  for (int i = 0; i < DataCount; i++)
-  {
-    //printf("RzMag: %f Ohm, RzPhase: %f \n", pImp[i].Magnitude, pImp[i].Phase * 180 / MATH_PI); //Phase in degrees
-    //printf("Freq: %.2f, ", freq);
-    printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp2[i].Real, pImp2[i].Image);
-  }
-  return 0;
-}
-
-/* Tissue Classification */
-
-void isEpidural(uint32_t *pData, uint32_t DataCount)
-{
-  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
-
-  // feed data into kNN Model
-
-  // Test
-  for (int i = 0; i < DataCount; i++)
-  {
-    if (pImp2[i].Real >= 40000.0)
-      digitalWrite(LED_GREEN, HIGH);
-    else
-      digitalWrite(LED_GREEN, LOW);
-  }
-}
-
-void isCSF(uint32_t *pData, uint32_t DataCount)
-{
-  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
-
-  // feed data into kNN Model
-
-  // Test
-  for (int i = 0; i < DataCount; i++)
-  {
-    if (pImp2[i].Real < 40000.0)
-    {
-      digitalWrite(LED_GREEN, LOW);
-      digitalWrite(LED_RED, HIGH);
-    }
-    else
-      digitalWrite(LED_RED, LOW);
-  }
-}
-
-
-/* Initialize AD5940 basic blocks like clock */
 static int32_t AD5940PlatformCfg(void)
 {
   CLKCfg_Type clk_cfg;
@@ -224,6 +84,7 @@ static int32_t AD5940PlatformCfg(void)
   return 0;
 }
 
+
 /* !!Change the application parameters here if you want to change it to none-default value */
 void AD5940BIOZStructInit(void)
 {
@@ -260,50 +121,169 @@ void AD5940BIOZStructInit(void)
   pBIOZCfg->RcalVal = 10000.0;
 }
 
-/****************** SETUP AND LOOP ***********************/
+/****************************** print Measured Impedance to UART **********************/
 
-void setup()
+int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
 {
+  float freq;
 
-  // Configure LED pins
-  pinMode(LED_GREEN, OUTPUT); 
-  pinMode(LED_YELLOW, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT_PULLDOWN);
+  //fImpPol_Type *pImp = (fImpPol_Type *)pData;
+  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+  AppBIOZCtrl(BIOZCTRL_GETFREQ, &freq);
 
-  MCUPlatformInit(0);
-  AD5940_MCUResourceInit(0);
-  // AD5940_HWReset();
-  // AD5940_Initialize();
-  AD5940PlatformCfg();
-  AD5940BIOZStructInit();             /* Configure your parameters in this function */
-  AppBIOZInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
-  //AppBIOZCtrl(BIOZCTRL_START, 0);      /* Control BIOZ measurement to start. Second parameter has no meaning with this command. */
-
-
+  printf("Freq: %.2f, ", freq);
+  /*Process data*/
+  for (int i = 0; i < DataCount; i++)
+  {
+    //printf("RzMag: %f Ohm, RzPhase: %f \n", pImp[i].Magnitude, pImp[i].Phase * 180 / MATH_PI); //Phase in degrees
+    //printf("Freq: %.2f, ", freq);
+    printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp2[i].Real, pImp2[i].Image);
+  }
+  return 0;
 }
 
-void loop()
+
+/****************************** Tissue Classification *********************************/
+
+void isEpidural(uint32_t *pData, uint32_t DataCount)
 {
+  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+
+  // feed data into kNN Model
+
+  // Test
+  for (int i = 0; i < DataCount; i++)
+  {
+    if (pImp2[i].Real >= 40000.0)
+      digitalWrite(LED_GREEN, HIGH);
+    else
+      digitalWrite(LED_GREEN, LOW);
+  }
+}
+
+
+void isCSF(uint32_t *pData, uint32_t DataCount)
+{
+  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+
+  // feed data into kNN Model
+
+  // Test
+  for (int i = 0; i < DataCount; i++)
+  {
+    if (pImp2[i].Real < 40000.0)
+    {
+      digitalWrite(LED_GREEN, LOW);
+      digitalWrite(LED_RED, HIGH);
+    }
+    else
+      digitalWrite(LED_RED, LOW);
+  }
+}
+
+/******************* BUTTON FUNCTIONS *********************/
+
+int buttonState;  // Holds state of button, HIGH triggers switch of state in State Machine
+
+void Button()
+{
+  #define buttonPressed LOW
+  uint32_t currentMillis = millis();                          // current timestamp in ms
+  static uint32_t lastMillis;                                 // last timestamp in ms
+  const uint32_t DEBOUNCEDELAY = 200;                         // Debounce delay for button
+  bool currentButtonState = digitalRead(BUTTON_PIN);          // Current state of button
+  static bool lastButtonState = HIGH;                         // last remembered button state
+
+  if (lastButtonState != currentButtonState)
+  {
+    if (currentMillis - lastMillis >= DEBOUNCEDELAY)
+    {
+      lastButtonState = currentButtonState;
+      if (currentButtonState == buttonPressed)
+        buttonState = HIGH;                                   // Update button state
+    }
+    else {
+      lastMillis = currentMillis;
+      buttonState = LOW;                                      // Make sure button state is defined (dont know if this helps anything)
+    }
+  }
+}
+
+
+/****************** STATE MACHINE ************************/
+
+const long blinkInterval = 500;                               // Blink interval for yellow LED in ms
+unsigned long previousMillis = 0;                             // Last remembered timestamp for Yellow LED blink in ms
+int YellowLEDstate = LOW;                                     // State of Yellow LED
+
+// States of State Machine
+enum states {
+  NONE,           // Default State before initialization
+  STANDBY,        // Standby State, no active data acquisition
+  ACTIVE          // Active State, data acquisition running
+};
+
+states prev_state, state;                                     //Global variables to store the previous and current states
+
+void standby()
+{
+  if (state != prev_state)                                    // If entering this state, do initialization stuff
+  {
+    prev_state = state;
+    AppBIOZCtrl(BIOZCTRL_STOPNOW, 0);
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_RED, LOW);
+    //digitalWrite(BUZZER, LOW);
+  }
+
+  // Perform state tasks
+
+  /* Blink Standby LED */
+   unsigned long currentLEDMillis = millis();
   
-  // Check for measurement state
-  if(measState == -1)
+    if (currentLEDMillis - previousMillis >= blinkInterval)
+    {
+      previousMillis = currentLEDMillis;
+
+      if (YellowLEDstate == LOW) 
+      {
+        YellowLEDstate = HIGH;
+      }
+      else
+      {
+        YellowLEDstate = LOW;
+      }
+      digitalWrite(LED_YELLOW, YellowLEDstate);
+    } 
+
+  // Check for state transitions
+    if(buttonState == HIGH)   
+    {
+      state = ACTIVE;
+    }
+
+    if(state != prev_state)               // Clean up
+    {
+      YellowLEDstate = LOW;
+      digitalWrite(LED_YELLOW, YellowLEDstate);
+      buttonState = LOW;
+    }
+}
+
+void active() 
+{
+  if (state != prev_state)
   {
-    standby();
-  }
-  else
-  {
-    digitalWrite(LED_YELLOW, HIGH); // Not nice, maybe use switch cases?
+    prev_state = state;
+    digitalWrite(LED_YELLOW, HIGH);
+    AppBIOZCtrl(BIOZCTRL_START, 0);
   }
 
-  ToggleMeas();
+  // Perform state tasks
 
- 
-
-
-  /* Check if interrupt flag which will be set when interrupt occurred. */
+  // Handle Measurment data
   if (AD5940_GetMCUIntFlag())
   {
-    IntCount++;
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
     AppBIOZISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
@@ -313,12 +293,56 @@ void loop()
     isEpidural(AppBuff, temp);
 
     // CHeck for CSF at Needle Tip
-    isCSF(AppBuff, temp);
-
-    if (IntCount == 240)
-    {
-      IntCount = 0;
-      // AppBIOZCtrl(BIOZCTRL_SHUTDOWN, 0);
-    }
+    //isCSF(AppBuff, temp);
   }
+
+  // Check for state transitions
+  if (buttonState == HIGH)
+  {
+    state = STANDBY;
+  }
+
+  if (state != prev_state)
+  {
+    buttonState = LOW;  // Cleanup
+  }
+}
+
+/****************** SETUP AND LOOP ***********************/
+
+void setup()
+{
+
+  // Configure LED pins
+  pinMode(LED_GREEN, OUTPUT); 
+  pinMode(LED_YELLOW, OUTPUT);
+
+  // Configure Button as Input
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  MCUPlatformInit(0);
+  AD5940_MCUResourceInit(0);
+  // AD5940_HWReset();
+  // AD5940_Initialize();
+  AD5940PlatformCfg();
+  AD5940BIOZStructInit();             /* Configure your parameters in this function */
+  AppBIOZInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
+  
+  prev_state = NONE;
+  state = STANDBY;
+  buttonState = LOW;
+}
+
+void loop()
+{
+  Button();
+  switch (state)
+  {
+    case STANDBY:
+      standby();
+      break;
+    case ACTIVE:
+      active();
+      break;
+  } 
 } 

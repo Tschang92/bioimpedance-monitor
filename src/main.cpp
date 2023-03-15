@@ -98,9 +98,9 @@ void AD5940BIOZStructInit(void)
   
   pBIOZCfg->DftNum = DFTNUM_8192;
   pBIOZCfg->NumOfData = -1; /* Never stop until you stop it manually by AppBIOZCtrl() function */
-  pBIOZCfg->BIOZODR = 10;    /* ODR(Sample Rate) 20Hz */
+  pBIOZCfg->BIOZODR = 5;    /* ODR(Sample Rate) 20Hz */
   pBIOZCfg->FifoThresh = 4; /* 4 */
-  pBIOZCfg->ADCSinc3Osr = ADCSINC3OSR_2;
+  pBIOZCfg->ADCSinc3Osr = ADCSINC3OSR_4;
 
    /* Configure Switch matrix */
   pBIOZCfg->DswitchSel = SWD_CE0; // Measuring Lead 1
@@ -117,8 +117,9 @@ void AD5940BIOZStructInit(void)
   pBIOZCfg->PwrMod = AFEPWR_HP;
 
   /* Configure Measurement setup */
-  pBIOZCfg->SinFreq = 100000.0;
-  pBIOZCfg->RcalVal = 10000.0;
+  pBIOZCfg->SinFreq = 10000.0;
+  pBIOZCfg->RcalVal = 975.0;
+  pBIOZCfg->HstiaRtiaSel = HSTIARTIA_1K;
 }
 
 /****************************** print Measured Impedance to UART **********************/
@@ -127,17 +128,17 @@ int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
 {
   float freq;
 
-  //fImpPol_Type *pImp = (fImpPol_Type *)pData;
-  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+  
+  fImpCar_Type *pImp = (fImpCar_Type *)pData;
   AppBIOZCtrl(BIOZCTRL_GETFREQ, &freq);
 
   printf("Freq: %.2f, ", freq);
   /*Process data*/
   for (int i = 0; i < DataCount; i++)
   {
-    //printf("RzMag: %f Ohm, RzPhase: %f \n", pImp[i].Magnitude, pImp[i].Phase * 180 / MATH_PI); //Phase in degrees
-    //printf("Freq: %.2f, ", freq);
-    printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp2[i].Real, pImp2[i].Image);
+    
+  printf("RzMag: %f Ohm, RzPhase: %f \n", AD5940_ComplexMag(&pImp[i]), AD5940_ComplexPhase(&pImp[i]) * 180 / MATH_PI); //Phase in degrees
+  //printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp[i].Real, pImp[i].Image);
   }
   return 0;
 }
@@ -147,14 +148,14 @@ int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
 
 void isEpidural(uint32_t *pData, uint32_t DataCount)
 {
-  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+  fImpCar_Type *pImp = (fImpCar_Type *)pData;
 
   // feed data into kNN Model
 
   // Test
   for (int i = 0; i < DataCount; i++)
   {
-    if (pImp2[i].Real >= 40000.0)
+    if (pImp[i].Real >= 40000.0)
       digitalWrite(LED_GREEN, HIGH);
     else
       digitalWrite(LED_GREEN, LOW);
@@ -164,14 +165,14 @@ void isEpidural(uint32_t *pData, uint32_t DataCount)
 
 void isCSF(uint32_t *pData, uint32_t DataCount)
 {
-  fImpCar_Type *pImp2 = (fImpCar_Type *)pData;
+  fImpCar_Type *pImp = (fImpCar_Type *)pData;
 
   // feed data into kNN Model
 
   // Test
   for (int i = 0; i < DataCount; i++)
   {
-    if (pImp2[i].Real < 40000.0)
+    if (pImp[i].Real < 40000.0)
     {
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
@@ -293,7 +294,7 @@ void active()
     isEpidural(AppBuff, temp);
 
     // CHeck for CSF at Needle Tip
-    //isCSF(AppBuff, temp);
+    isCSF(AppBuff, temp);
   }
 
   // Check for state transitions

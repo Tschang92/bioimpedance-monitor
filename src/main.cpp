@@ -30,7 +30,7 @@ uint32_t AppBuff[APPBUFF_SIZE];
 
 #define LED_GREEN 12
 #define LED_YELLOW 11
-#define LED_RED LED_BUILTIN
+#define LED_RED 10
 #define BUTTON_PIN 9
 
 
@@ -98,7 +98,7 @@ void AD5940BIOZStructInit(void)
   
   pBIOZCfg->DftNum = DFTNUM_8192;
   pBIOZCfg->NumOfData = -1; /* Never stop until you stop it manually by AppBIOZCtrl() function */
-  pBIOZCfg->BIOZODR = 5;    /* ODR(Sample Rate) 20Hz */
+  pBIOZCfg->BIOZODR = 20;    /* ODR(Sample Rate) 20Hz */
   pBIOZCfg->FifoThresh = 4; /* 4 */
   pBIOZCfg->ADCSinc3Osr = ADCSINC3OSR_4;
 
@@ -117,8 +117,8 @@ void AD5940BIOZStructInit(void)
   pBIOZCfg->PwrMod = AFEPWR_HP;
 
   /* Configure Measurement setup */
-  pBIOZCfg->SinFreq = 10000.0;
-  pBIOZCfg->RcalVal = 975.0;
+  pBIOZCfg->SinFreq = 100000.0;
+  pBIOZCfg->RcalVal = 10000.0;
   pBIOZCfg->HstiaRtiaSel = HSTIARTIA_1K;
 }
 
@@ -137,8 +137,8 @@ int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
   for (int i = 0; i < DataCount; i++)
   {
     
-  printf("RzMag: %f Ohm, RzPhase: %f \n", AD5940_ComplexMag(&pImp[i]), AD5940_ComplexPhase(&pImp[i]) * 180 / MATH_PI); //Phase in degrees
-  //printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp[i].Real, pImp[i].Image);
+  //printf("RzMag: %f Ohm, RzPhase: %f \n", AD5940_ComplexMag(&pImp[i]), AD5940_ComplexPhase(&pImp[i]) * 180 / MATH_PI); //Phase in degrees
+  printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp[i].Real, pImp[i].Image);
   }
   return 0;
 }

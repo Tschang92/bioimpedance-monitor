@@ -12,6 +12,11 @@ By using this software you agree to the terms of the associated
 Analog Devices Software License Agreement.
  
 *****************************************************************************/
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #ifndef _IMPEDANCESEQUENCES_H_
 #define _IMPEDANCESEQUENCES_H_
 #include "ad5940.h"
@@ -81,4 +86,8 @@ int32_t AppIMPGetCfg(void *pCfg);
 int32_t AppIMPISR(void *pBuff, uint32_t *pCount);
 int32_t AppIMPCtrl(uint32_t Command, void *pPara);
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

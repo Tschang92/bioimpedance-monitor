@@ -87,7 +87,7 @@ static int32_t AD5940PlatformCfg(void)
 
 
 /* !!Change the application parameters here if you want to change it to none-default value */
-void AD5940BIOZStructInit(void)
+void AD5940ImpedanceStructInit(void)
 {
   AppIMPCfg_Type *pImpedanceCfg;
 
@@ -99,7 +99,7 @@ void AD5940BIOZStructInit(void)
   
   pImpedanceCfg->DftNum = DFTNUM_8192;
   pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
-  pImpedanceCfg->BIOZODR = 20;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->ImpODR = 20;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_4;
 
@@ -231,7 +231,7 @@ void standby()
   if (state != prev_state)                                    // If entering this state, do initialization stuff
   {
     prev_state = state;
-    AppImpedanceCtrl(BIOZCTRL_STOPNOW, 0);
+    AppIMPCtrl(IMPCTRL_STOPNOW, 0);
     digitalWrite(LED_GREEN, LOW);
     digitalWrite(LED_RED, LOW);
     digitalWrite(BUZZER_PIN, LOW);
@@ -277,7 +277,7 @@ void active()
   {
     prev_state = state;
     digitalWrite(LED_YELLOW, HIGH);
-    AppImpedanceCtrl(BIOZCTRL_START, 0);
+    AppIMPCtrl(IMPCTRL_START, 0);
   }
 
   // Perform state tasks
@@ -287,8 +287,8 @@ void active()
   {
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
-    AppImpedanceISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
-    BIOZShowResult(AppBuff, temp); /* Show the results to UART */
+    AppIMPISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
+    ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
 
     // Check for Epidural Tissue at Needle Tip
     isEpidural(AppBuff, temp);
@@ -326,8 +326,8 @@ void setup()
   // AD5940_HWReset();
   // AD5940_Initialize();
   AD5940PlatformCfg();
-  AD5940BIOZStructInit();             /* Configure your parameters in this function */
-  AppImpedanceInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
+  AD5940ImpedanceStructInit();             /* Configure your parameters in this function */
+  AppIMPInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
   
   prev_state = NONE;
   state = STANDBY;

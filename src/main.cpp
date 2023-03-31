@@ -20,7 +20,7 @@ This software is based on Analog Devices' example code.
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "BIOZ-2Wire.h"
+#include "impedance.h"
 
 uint32_t MCUPlatformInit(void *pCfg);
 uint32_t temp;
@@ -28,6 +28,7 @@ uint32_t temp;
 #define APPBUFF_SIZE 512
 uint32_t AppBuff[APPBUFF_SIZE];
 
+#define BUZZER_PIN 13
 #define LED_GREEN 12
 #define LED_YELLOW 11
 #define LED_RED 10
@@ -62,7 +63,7 @@ static int32_t AD5940PlatformCfg(void)
   fifo_cfg.FIFOMode = FIFOMODE_FIFO;
   fifo_cfg.FIFOSize = FIFOSIZE_4KB; /* 4kB for FIFO, The reset 2kB for sequencer */
   fifo_cfg.FIFOSrc = FIFOSRC_DFT;
-  fifo_cfg.FIFOThresh = 4;   // AppBIOZCfg.FifoThresh;        /* DFT result. One pair for RCAL, another for Rz. One DFT result have real part and imaginary part */
+  fifo_cfg.FIFOThresh = 4;   // AppImpedanceCfg.FifoThresh;        /* DFT result. One pair for RCAL, another for Rz. One DFT result have real part and imaginary part */
   AD5940_FIFOCfg(&fifo_cfg); /* Disable to reset FIFO. */
   fifo_cfg.FIFOEn = bTRUE;
   AD5940_FIFOCfg(&fifo_cfg); /* Enable FIFO here */
@@ -88,57 +89,54 @@ static int32_t AD5940PlatformCfg(void)
 /* !!Change the application parameters here if you want to change it to none-default value */
 void AD5940BIOZStructInit(void)
 {
-  AppBIOZCfg_Type *pBIOZCfg;
+  AppIMPCfg_Type *pImpedanceCfg;
 
-  AppBIOZGetCfg(&pBIOZCfg);
+  AppIMPGetCfg(&pImpedanceCfg);
 
-  pBIOZCfg->SeqStartAddr = 0;
-  pBIOZCfg->MaxSeqLen = 512; /** @todo add checker in function */
+  pImpedanceCfg->SeqStartAddr = 0;
+  pImpedanceCfg->MaxSeqLen = 512; /** @todo add checker in function */
 
   
-  pBIOZCfg->DftNum = DFTNUM_8192;
-  pBIOZCfg->NumOfData = -1; /* Never stop until you stop it manually by AppBIOZCtrl() function */
-  pBIOZCfg->BIOZODR = 20;    /* ODR(Sample Rate) 20Hz */
-  pBIOZCfg->FifoThresh = 4; /* 4 */
-  pBIOZCfg->ADCSinc3Osr = ADCSINC3OSR_4;
+  pImpedanceCfg->DftNum = DFTNUM_8192;
+  pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
+  pImpedanceCfg->BIOZODR = 20;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->FifoThresh = 4; /* 4 */
+  pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_4;
 
    /* Configure Switch matrix */
-  pBIOZCfg->DswitchSel = SWD_CE0; // Measuring Lead 1
-  pBIOZCfg->PswitchSel = SWP_CE0;
-  pBIOZCfg->NswitchSel = SWN_AIN2; // Measuring Lead 2
-  pBIOZCfg->TswitchSel = SWN_AIN2;
+  pImpedanceCfg->DswitchSel = SWD_CE0; // Measuring Lead 1
+  pImpedanceCfg->PswitchSel = SWP_CE0;
+  pImpedanceCfg->NswitchSel = SWN_AIN2; // Measuring Lead 2
+  pImpedanceCfg->TswitchSel = SWN_AIN2;
 
   /* Configure Sweep parameters */
-  pBIOZCfg->SweepCfg.SweepEn = bFALSE; /* Measuring at single Frequency */
-  pBIOZCfg->SweepCfg.SweepStart = 1000;
-  pBIOZCfg->SweepCfg.SweepStop = 200000.0;
-  pBIOZCfg->SweepCfg.SweepPoints = 100; /* Max is 100 */
-  pBIOZCfg->SweepCfg.SweepLog = bFALSE;
-  pBIOZCfg->PwrMod = AFEPWR_HP;
+  pImpedanceCfg->SweepCfg.SweepEn = bFALSE; /* Measuring at single Frequency */
+  pImpedanceCfg->SweepCfg.SweepStart = 1000;
+  pImpedanceCfg->SweepCfg.SweepStop = 200000.0;
+  pImpedanceCfg->SweepCfg.SweepPoints = 100; /* Max is 100 */
+  pImpedanceCfg->SweepCfg.SweepLog = bFALSE;
+  pImpedanceCfg->PwrMod = AFEPWR_HP;
 
   /* Configure Measurement setup */
-  pBIOZCfg->SinFreq = 100000.0;
-  pBIOZCfg->RcalVal = 10000.0;
-  pBIOZCfg->HstiaRtiaSel = HSTIARTIA_1K;
+  pImpedanceCfg->SinFreq = 100000.0;
+  pImpedanceCfg->RcalVal = 10000.0;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
 }
 
 /****************************** print Measured Impedance to UART **********************/
 
-int32_t BIOZShowResult(uint32_t *pData, uint32_t DataCount)
+int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
 {
   float freq;
 
-  
-  fImpCar_Type *pImp = (fImpCar_Type *)pData;
-  AppBIOZCtrl(BIOZCTRL_GETFREQ, &freq);
+  fImpPol_Type *pImp = (fImpPol_Type*)pData;
+  AppIMPCtrl(IMPCTRL_GETFREQ, &freq);
 
-  printf("Freq: %.2f, ", freq);
+  printf("Freq:%.2f ", freq);
   /*Process data*/
-  for (int i = 0; i < DataCount; i++)
+  for(int i=0;i<DataCount;i++)
   {
-    
-  //printf("RzMag: %f Ohm, RzPhase: %f \n", AD5940_ComplexMag(&pImp[i]), AD5940_ComplexPhase(&pImp[i]) * 180 / MATH_PI); //Phase in degrees
-  printf("RzResistance: %f Ohm, RzReactance: %f Ohm\n", pImp[i].Real, pImp[i].Image);
+    printf("RzMag: %f Ohm , RzPhase: %f \n",pImp[i].Magnitude,pImp[i].Phase*180/MATH_PI);
   }
   return 0;
 }
@@ -155,7 +153,7 @@ void isEpidural(uint32_t *pData, uint32_t DataCount)
   // Test
   for (int i = 0; i < DataCount; i++)
   {
-    if (pImp[i].Real >= 40000.0)
+    if (pImp[i].Real >= 9000.0)
       digitalWrite(LED_GREEN, HIGH);
     else
       digitalWrite(LED_GREEN, LOW);
@@ -172,13 +170,15 @@ void isCSF(uint32_t *pData, uint32_t DataCount)
   // Test
   for (int i = 0; i < DataCount; i++)
   {
-    if (pImp[i].Real < 40000.0)
+    if (pImp[i].Real < 1000.0)
     {
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
+      digitalWrite(BUZZER_PIN, HIGH);
     }
     else
       digitalWrite(LED_RED, LOW);
+      digitalWrite(BUZZER_PIN, HIGH);
   }
 }
 
@@ -231,10 +231,10 @@ void standby()
   if (state != prev_state)                                    // If entering this state, do initialization stuff
   {
     prev_state = state;
-    AppBIOZCtrl(BIOZCTRL_STOPNOW, 0);
+    AppImpedanceCtrl(BIOZCTRL_STOPNOW, 0);
     digitalWrite(LED_GREEN, LOW);
     digitalWrite(LED_RED, LOW);
-    //digitalWrite(BUZZER, LOW);
+    digitalWrite(BUZZER_PIN, LOW);
   }
 
   // Perform state tasks
@@ -277,7 +277,7 @@ void active()
   {
     prev_state = state;
     digitalWrite(LED_YELLOW, HIGH);
-    AppBIOZCtrl(BIOZCTRL_START, 0);
+    AppImpedanceCtrl(BIOZCTRL_START, 0);
   }
 
   // Perform state tasks
@@ -287,7 +287,7 @@ void active()
   {
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
-    AppBIOZISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
+    AppImpedanceISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
     BIOZShowResult(AppBuff, temp); /* Show the results to UART */
 
     // Check for Epidural Tissue at Needle Tip
@@ -327,7 +327,7 @@ void setup()
   // AD5940_Initialize();
   AD5940PlatformCfg();
   AD5940BIOZStructInit();             /* Configure your parameters in this function */
-  AppBIOZInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
+  AppImpedanceInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
   
   prev_state = NONE;
   state = STANDBY;

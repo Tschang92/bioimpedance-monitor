@@ -110,17 +110,25 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->TswitchSel = SWN_AIN2;
 
   /* Configure Sweep parameters */
-  pImpedanceCfg->SweepCfg.SweepEn = bFALSE; /* Measuring at single Frequency */
-  pImpedanceCfg->SweepCfg.SweepStart = 1000;
-  pImpedanceCfg->SweepCfg.SweepStop = 200000.0;
-  pImpedanceCfg->SweepCfg.SweepPoints = 100; /* Max is 100 */
-  pImpedanceCfg->SweepCfg.SweepLog = bFALSE;
+  // pImpedanceCfg->SweepCfg.SweepEn = bTRUE; /* Measuring at single Frequency */
+  // pImpedanceCfg->SweepCfg.SweepStart = 1000;
+  // pImpedanceCfg->SweepCfg.SweepStop = 100000.0;
+  // pImpedanceCfg->SweepCfg.SweepPoints = 100; /* Max is 100 */
+  // pImpedanceCfg->SweepCfg.SweepLog = bFALSE;
   pImpedanceCfg->PwrMod = AFEPWR_HP;
+
+  pImpedanceCfg->SweepCfg.SweepEn = bTRUE,
+  pImpedanceCfg->SweepCfg.SweepStart = 1000,
+  pImpedanceCfg->SweepCfg.SweepStop = 100000.0,
+  pImpedanceCfg->SweepCfg.SweepPoints = 101,
+  pImpedanceCfg->SweepCfg.SweepLog = bFALSE,
+  pImpedanceCfg->SweepCfg.SweepIndex = 0,
 
   /* Configure Measurement setup */
   pImpedanceCfg->SinFreq = 100000.0;
-  pImpedanceCfg->RcalVal = 10000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
+  pImpedanceCfg->RcalVal = 100000.0;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_5K;
+  pImpedanceCfg->DacVoltPP = 250; //600.0,
 }
 
 /****************************** print Measured Impedance to UART **********************/

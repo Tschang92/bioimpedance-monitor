@@ -97,8 +97,8 @@ void AD5940BIOZStructInit(void)
 
   
   pBIOZCfg->DftNum = DFTNUM_8192;
-  pBIOZCfg->NumOfData = -1; /* Never stop until you stop it manually by AppBIOZCtrl() function */
-  pBIOZCfg->BIOZODR = 20;    /* ODR(Sample Rate) 20Hz */
+  pBIOZCfg->NumOfData = 20; /* Never stop until you stop it manually by AppBIOZCtrl() function */
+  pBIOZCfg->BIOZODR = 5;    /* ODR(Sample Rate) 20Hz */
   pBIOZCfg->FifoThresh = 4; /* 4 */
   pBIOZCfg->ADCSinc3Osr = ADCSINC3OSR_4;
 
@@ -109,17 +109,20 @@ void AD5940BIOZStructInit(void)
   pBIOZCfg->TswitchSel = SWN_AIN2;
 
   /* Configure Sweep parameters */
+  pBIOZCfg->PwrMod = AFEPWR_HP;
   pBIOZCfg->SweepCfg.SweepEn = bFALSE; /* Measuring at single Frequency */
   pBIOZCfg->SweepCfg.SweepStart = 1000;
-  pBIOZCfg->SweepCfg.SweepStop = 200000.0;
-  pBIOZCfg->SweepCfg.SweepPoints = 100; /* Max is 100 */
+  pBIOZCfg->SweepCfg.SweepStop = 100000.0;
+  pBIOZCfg->SweepCfg.SweepPoints = 20; /* Max is 100 */
   pBIOZCfg->SweepCfg.SweepLog = bFALSE;
-  pBIOZCfg->PwrMod = AFEPWR_HP;
+  
 
   /* Configure Measurement setup */
-  pBIOZCfg->SinFreq = 100000.0;
-  pBIOZCfg->RcalVal = 10000.0;
+  pBIOZCfg->SinFreq = 10000.0;
+  pBIOZCfg->RcalVal = 1000.0;
   pBIOZCfg->HstiaRtiaSel = HSTIARTIA_1K;
+  pBIOZCfg->CtiaSel = 16;
+  pBIOZCfg->DacVoltPP = 600;
 }
 
 /****************************** print Measured Impedance to UART **********************/

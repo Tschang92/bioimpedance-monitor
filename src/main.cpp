@@ -99,7 +99,7 @@ void AD5940ImpedanceStructInit(void)
   
   pImpedanceCfg->DftNum = DFTNUM_8192;
   pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
-  pImpedanceCfg->ImpODR = 20;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->ImpODR = 2;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_4;
 
@@ -117,7 +117,7 @@ void AD5940ImpedanceStructInit(void)
   // pImpedanceCfg->SweepCfg.SweepLog = bFALSE;
   pImpedanceCfg->PwrMod = AFEPWR_HP;
 
-  pImpedanceCfg->SweepCfg.SweepEn = bTRUE,
+  pImpedanceCfg->SweepCfg.SweepEn = bFALSE,
   pImpedanceCfg->SweepCfg.SweepStart = 1000,
   pImpedanceCfg->SweepCfg.SweepStop = 100000.0,
   pImpedanceCfg->SweepCfg.SweepPoints = 101,
@@ -125,10 +125,10 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->SweepCfg.SweepIndex = 0,
 
   /* Configure Measurement setup */
-  pImpedanceCfg->SinFreq = 100000.0;
-  pImpedanceCfg->RcalVal = 100000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_5K;
-  pImpedanceCfg->DacVoltPP = 250; //600.0,
+  pImpedanceCfg->SinFreq = 10000.0;
+  pImpedanceCfg->RcalVal = 1000.0;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
+  pImpedanceCfg->DacVoltPP = 600.0; //600.0,
 }
 
 /****************************** print Measured Impedance to UART **********************/

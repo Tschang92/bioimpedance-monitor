@@ -98,8 +98,8 @@ void AD5940ImpedanceStructInit(void)
 
   
   pImpedanceCfg->DftNum = DFTNUM_8192;
-  pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
-  pImpedanceCfg->ImpODR = 2;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->NumOfData = 50; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
+  pImpedanceCfg->ImpODR = 10;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_4;
 
@@ -117,10 +117,10 @@ void AD5940ImpedanceStructInit(void)
   // pImpedanceCfg->SweepCfg.SweepLog = bFALSE;
   pImpedanceCfg->PwrMod = AFEPWR_HP;
 
-  pImpedanceCfg->SweepCfg.SweepEn = bFALSE,
+  pImpedanceCfg->SweepCfg.SweepEn = bTRUE,
   pImpedanceCfg->SweepCfg.SweepStart = 1000,
   pImpedanceCfg->SweepCfg.SweepStop = 100000.0,
-  pImpedanceCfg->SweepCfg.SweepPoints = 101,
+  pImpedanceCfg->SweepCfg.SweepPoints = 50,
   pImpedanceCfg->SweepCfg.SweepLog = bFALSE,
   pImpedanceCfg->SweepCfg.SweepIndex = 0,
 
@@ -140,7 +140,7 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
   fImpPol_Type *pImp = (fImpPol_Type*)pData;
   AppIMPCtrl(IMPCTRL_GETFREQ, &freq);
 
-  printf("Freq:%.2f ", freq);
+  printf("Freq: %.2f ,", freq);
   /*Process data*/
   for(int i=0;i<DataCount;i++)
   {

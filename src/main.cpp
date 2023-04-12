@@ -98,10 +98,10 @@ void AD5940ImpedanceStructInit(void)
 
   
   pImpedanceCfg->DftNum = DFTNUM_8192;
-  pImpedanceCfg->NumOfData = 50; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
-  pImpedanceCfg->ImpODR = 10;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
+  pImpedanceCfg->ImpODR = 1;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
-  pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_4;
+  pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_2;
 
    /* Configure Switch matrix */
   pImpedanceCfg->DswitchSel = SWD_CE0; // Measuring Lead 1
@@ -120,14 +120,14 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->SweepCfg.SweepEn = bTRUE,
   pImpedanceCfg->SweepCfg.SweepStart = 1000,
   pImpedanceCfg->SweepCfg.SweepStop = 100000.0,
-  pImpedanceCfg->SweepCfg.SweepPoints = 50,
+  pImpedanceCfg->SweepCfg.SweepPoints = 100,
   pImpedanceCfg->SweepCfg.SweepLog = bFALSE,
   pImpedanceCfg->SweepCfg.SweepIndex = 0,
 
   /* Configure Measurement setup */
   pImpedanceCfg->SinFreq = 10000.0;
-  pImpedanceCfg->RcalVal = 1000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
+  pImpedanceCfg->RcalVal = 10000.0;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_5K;
   pImpedanceCfg->DacVoltPP = 600.0; //600.0,
 }
 

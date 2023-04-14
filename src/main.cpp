@@ -97,11 +97,12 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->MaxSeqLen = 512; /** @todo add checker in function */
 
   
-  pImpedanceCfg->DftNum = DFTNUM_8192;
+  pImpedanceCfg->DftNum = DFTNUM_16384;
   pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
-  pImpedanceCfg->ImpODR = 1;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->ImpODR = 5;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_2;
+  pImpedanceCfg->ADCSinc2Osr = ADCSINC2OSR_22;
 
    /* Configure Switch matrix */
   pImpedanceCfg->DswitchSel = SWD_CE0; // Measuring Lead 1
@@ -109,12 +110,7 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->NswitchSel = SWN_AIN2; // Measuring Lead 2
   pImpedanceCfg->TswitchSel = SWN_AIN2;
 
-  /* Configure Sweep parameters */
-  // pImpedanceCfg->SweepCfg.SweepEn = bTRUE; /* Measuring at single Frequency */
-  // pImpedanceCfg->SweepCfg.SweepStart = 1000;
-  // pImpedanceCfg->SweepCfg.SweepStop = 100000.0;
-  // pImpedanceCfg->SweepCfg.SweepPoints = 100; /* Max is 100 */
-  // pImpedanceCfg->SweepCfg.SweepLog = bFALSE;
+  
   pImpedanceCfg->PwrMod = AFEPWR_HP;
 
   pImpedanceCfg->SweepCfg.SweepEn = bTRUE,
@@ -125,9 +121,9 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->SweepCfg.SweepIndex = 0,
 
   /* Configure Measurement setup */
-  pImpedanceCfg->SinFreq = 10000.0;
+  pImpedanceCfg->SinFreq = 100000.0;
   pImpedanceCfg->RcalVal = 10000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_5K;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_10K;
   pImpedanceCfg->DacVoltPP = 600.0; //600.0,
 }
 
@@ -144,7 +140,8 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
   /*Process data*/
   for(int i=0;i<DataCount;i++)
   {
-    printf("RzMag: %f Ohm , RzPhase: %f \n",pImp[i].Magnitude,pImp[i].Phase*180/MATH_PI);
+    //printf("RzMag: %f Ohm , RzPhase: %f \n",pImp[i].Magnitude,pImp[i].Phase*180/MATH_PI);
+    printf("RzResistance: %f Ohm , RzReactance: %f Ohm\n",pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
   }
   return 0;
 }

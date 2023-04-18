@@ -21,6 +21,9 @@ This software is based on Analog Devices' example code.
 #include <stdlib.h>
 #include <math.h>
 #include "impedance.h"
+#include <Arduino_KNN.h>
+#include "FatData.h"
+#include "CsfData.h"
 
 uint32_t MCUPlatformInit(void *pCfg);
 uint32_t temp;
@@ -148,6 +151,8 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
 
 
 /****************************** Tissue Classification *********************************/
+
+
 
 void isEpidural(uint32_t *pData, uint32_t DataCount)
 {
@@ -314,41 +319,94 @@ void active()
   }
 }
 
+KNNClassifier tissueKNN(2);
+
 /****************** SETUP AND LOOP ***********************/
 
 void setup()
 {
 
-  // Configure LED pins
-  pinMode(LED_GREEN, OUTPUT); 
-  pinMode(LED_YELLOW, OUTPUT);
+  // // Configure LED pins
+  // pinMode(LED_GREEN, OUTPUT); 
+  // pinMode(LED_YELLOW, OUTPUT);
 
-  // Configure Button as Input
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  // // Configure Button as Input
+  // pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  MCUPlatformInit(0);
-  AD5940_MCUResourceInit(0);
-  // AD5940_HWReset();
-  // AD5940_Initialize();
-  AD5940PlatformCfg();
-  AD5940ImpedanceStructInit();             /* Configure your parameters in this function */
-  AppIMPInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
+  // MCUPlatformInit(0);
+  // AD5940_MCUResourceInit(0);
+  // // AD5940_HWReset();
+  // // AD5940_Initialize();
+  // AD5940PlatformCfg();
+  // AD5940ImpedanceStructInit();             /* Configure your parameters in this function */
+  // AppIMPInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
   
-  prev_state = NONE;
-  state = STANDBY;
-  buttonState = LOW;
+  // prev_state = NONE;
+  // state = STANDBY;
+  // buttonState = LOW;
+
+  // Create KNN Classifier with 2 dimensions (Resistance and Reactance)
+
+Serial.begin(9600);
+while (!Serial);
+
+// add examples to kNN Model
+// float example1[] = { 7.0, 7.0 };
+// float example2[] = { 5.0, 5.0 };
+// float example3[] = { 9.0, 9.0 };
+// float example4[] = { 5.0, 5.0 };
+
+// tissueKNN.addExample(example1, 7);  // add example for class 7
+// tissueKNN.addExample(example2, 5);  // add example for class 5
+// tissueKNN.addExample(example3, 9);  // add example for class 9
+// tissueKNN.addExample(example4, 5);  // add example for class 5
+
+// Add example Fat values to kNN
+for (int i = 0; i < sizeof(fat_data) / sizeof(fat_data[0]); i++)
+{
+  tissueKNN.addExample(fat_data[i], 1);
+}
+
+// Add example CSF values to kNN
+for (int i = 0; i < sizeof(csf_data) / sizeof(csf_data[0]); i++)
+{
+  tissueKNN.addExample(csf_data[i], 2);
+}
+
+// get and print KNN count
+printf("\ttissueKNN.getcount() = ");
+printf("%i\n", tissueKNN.getCount());
+
+
+// Classify input
+printf("Classifying input\n");
+
+float input[] = { 4.0, 4.0 };
+
+int classification = tissueKNN.classify(input, 3);  //classify input with k = 3
+float confidence = tissueKNN.confidence();
+
+//print classification and confidence
+printf("classification = ");
+printf("%i \n", classification);
+
+printf("confidence = ");
+printf("%.2f\n", confidence);
+
+
 }
 
 void loop()
 {
-  Button();
-  switch (state)
-  {
-    case STANDBY:
-      standby();
-      break;
-    case ACTIVE:
-      active();
-      break;
-  } 
+  // //Serial.println("test");
+  // Button();
+  // switch (state)
+  // {
+  //   case STANDBY:
+  //     standby();
+  //     break;
+  //   case ACTIVE:
+  //     active();
+  //     break;
+  // } 
 } 

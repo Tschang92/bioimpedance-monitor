@@ -37,6 +37,8 @@ uint32_t AppBuff[APPBUFF_SIZE];
 #define LED_RED 10
 #define BUTTON_PIN 9
 
+#define FAT_CLASS 1
+#define CSF_CLASS 2
 
 
 /****************************** Initialize AD5940 basic blocks like clock ************************************/
@@ -102,7 +104,7 @@ void AD5940ImpedanceStructInit(void)
   
   pImpedanceCfg->DftNum = DFTNUM_16384;
   pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
-  pImpedanceCfg->ImpODR = 5;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->ImpODR = 10;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_2;
   pImpedanceCfg->ADCSinc2Osr = ADCSINC2OSR_22;
@@ -116,7 +118,7 @@ void AD5940ImpedanceStructInit(void)
   
   pImpedanceCfg->PwrMod = AFEPWR_HP;
 
-  pImpedanceCfg->SweepCfg.SweepEn = bTRUE,
+  pImpedanceCfg->SweepCfg.SweepEn = bFALSE,
   pImpedanceCfg->SweepCfg.SweepStart = 1000,
   pImpedanceCfg->SweepCfg.SweepStop = 100000.0,
   pImpedanceCfg->SweepCfg.SweepPoints = 100,
@@ -125,8 +127,8 @@ void AD5940ImpedanceStructInit(void)
 
   /* Configure Measurement setup */
   pImpedanceCfg->SinFreq = 100000.0;
-  pImpedanceCfg->RcalVal = 10000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_10K;
+  pImpedanceCfg->RcalVal = 1000.0;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
   pImpedanceCfg->DacVoltPP = 600.0; //600.0,
 }
 
@@ -152,45 +154,91 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
 
 /****************************** Tissue Classification *********************************/
 
+// Create KNN Classifier with 2 dimensions (Resistance and Reactance)
+KNNClassifier tissueKNN(2);
 
-
-void isEpidural(uint32_t *pData, uint32_t DataCount)
+int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
 {
-  fImpCar_Type *pImp = (fImpCar_Type *)pData;
+  //float input[] = {0.0, 0.0};
+  fImpPol_Type *pImp = (fImpPol_Type*)pData;
 
-  // feed data into kNN Model
 
-  // Test
-  for (int i = 0; i < DataCount; i++)
+  for (int i=0;i<DataCount;i++)
   {
-    if (pImp[i].Real >= 9000.0)
-      digitalWrite(LED_GREEN, HIGH);
-    else
-      digitalWrite(LED_GREEN, LOW);
-  }
-}
+    // Use first Data tuple as input for classification
+    float input[] = {pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase)};
 
+    int classification = tissueKNN.classify(input, 3);    //classify input with k = 3
+   // float confidence = tissueKNN.confidence();
 
-void isCSF(uint32_t *pData, uint32_t DataCount)
-{
-  fImpCar_Type *pImp = (fImpCar_Type *)pData;
-
-  // feed data into kNN Model
-
-  // Test
-  for (int i = 0; i < DataCount; i++)
-  {
-    if (pImp[i].Real < 1000.0)
+    // Handle Case if Needle in epidural Space 
+    if (classification == FAT_CLASS)
     {
+      printf("%s\n", "Fat");
+      digitalWrite(LED_GREEN, HIGH);
+      digitalWrite(LED_RED, LOW);
+      digitalWrite(BUZZER_PIN, LOW);
+    }
+    // Handle Case if Needle in CSF 
+    else if (classification == CSF_CLASS)
+    {
+      printf("%s\n", "CSF");
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
       digitalWrite(BUZZER_PIN, HIGH);
     }
+    // Needle in other tissue
     else
+    {
+      printf("%s\n", "Other");
+      digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, LOW);
-      digitalWrite(BUZZER_PIN, HIGH);
+      digitalWrite(BUZZER_PIN, LOW);
+    }
   }
+  return 0;
 }
+
+
+
+
+// void isEpidural(uint32_t *pData, uint32_t DataCount)
+// {
+//   fImpCar_Type *pImp = (fImpCar_Type *)pData;
+
+//   // feed data into kNN Model
+
+//   // Test
+//   for (int i = 0; i < DataCount; i++)
+//   {
+//     if (pImp[i].Real >= 9000.0)
+//       digitalWrite(LED_GREEN, HIGH);
+//     else
+//       digitalWrite(LED_GREEN, LOW);
+//   }
+// }
+
+
+// void isCSF(uint32_t *pData, uint32_t DataCount)
+// {
+//   fImpCar_Type *pImp = (fImpCar_Type *)pData;
+
+//   // feed data into kNN Model
+
+//   // Test
+//   for (int i = 0; i < DataCount; i++)
+//   {
+//     if (pImp[i].Real < 1000.0)
+//     {
+//       digitalWrite(LED_GREEN, LOW);
+//       digitalWrite(LED_RED, HIGH);
+//       digitalWrite(BUZZER_PIN, HIGH);
+//     }
+//     else
+//       digitalWrite(LED_RED, LOW);
+//       digitalWrite(BUZZER_PIN, HIGH);
+//   }
+// }
 
 /******************* BUTTON FUNCTIONS *********************/
 
@@ -298,13 +346,14 @@ void active()
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
     AppIMPISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
-    ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
+    //ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
+    ClassifyTissue(AppBuff, temp);
 
     // Check for Epidural Tissue at Needle Tip
-    isEpidural(AppBuff, temp);
+    //isEpidural(AppBuff, temp);
 
     // CHeck for CSF at Needle Tip
-    isCSF(AppBuff, temp);
+    //isCSF(AppBuff, temp);
   }
 
   // Check for state transitions
@@ -319,33 +368,33 @@ void active()
   }
 }
 
-KNNClassifier tissueKNN(2);
+
 
 /****************** SETUP AND LOOP ***********************/
 
 void setup()
 {
 
-  // // Configure LED pins
-  // pinMode(LED_GREEN, OUTPUT); 
-  // pinMode(LED_YELLOW, OUTPUT);
+   // Configure LED pins
+   pinMode(LED_GREEN, OUTPUT); 
+   pinMode(LED_YELLOW, OUTPUT);
 
-  // // Configure Button as Input
-  // pinMode(BUTTON_PIN, INPUT_PULLUP);
+   // Configure Button as Input
+   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  // MCUPlatformInit(0);
-  // AD5940_MCUResourceInit(0);
-  // // AD5940_HWReset();
-  // // AD5940_Initialize();
-  // AD5940PlatformCfg();
-  // AD5940ImpedanceStructInit();             /* Configure your parameters in this function */
-  // AppIMPInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
+   MCUPlatformInit(0);
+   AD5940_MCUResourceInit(0);
+   // AD5940_HWReset();
+   // AD5940_Initialize();
+   AD5940PlatformCfg();
+   AD5940ImpedanceStructInit();             /* Configure your parameters in this function */
+   AppIMPInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
   
-  // prev_state = NONE;
-  // state = STANDBY;
-  // buttonState = LOW;
+   prev_state = NONE;
+   state = STANDBY;
+   buttonState = LOW;
 
-  // Create KNN Classifier with 2 dimensions (Resistance and Reactance)
+  
 
 Serial.begin(9600);
 while (!Serial);
@@ -374,24 +423,24 @@ for (int i = 0; i < sizeof(csf_data) / sizeof(csf_data[0]); i++)
 }
 
 // get and print KNN count
-printf("\ttissueKNN.getcount() = ");
-printf("%i\n", tissueKNN.getCount());
+//printf("\ttissueKNN.getcount() = ");
+//printf("%i\n", tissueKNN.getCount());
 
 
 // Classify input
-printf("Classifying input\n");
+// printf("Classifying input\n");
 
-float input[] = { 4.0, 4.0 };
+//float input[] = { 4.0, 4.0 };
 
-int classification = tissueKNN.classify(input, 3);  //classify input with k = 3
-float confidence = tissueKNN.confidence();
+//int classification = tissueKNN.classify(input, 3);  //classify input with k = 3
+//float confidence = tissueKNN.confidence();
 
 //print classification and confidence
-printf("classification = ");
-printf("%i \n", classification);
+// printf("classification = ");
+// printf("%i \n", classification);
 
-printf("confidence = ");
-printf("%.2f\n", confidence);
+// printf("confidence = ");
+// printf("%.2f\n", confidence);
 
 
 }
@@ -399,14 +448,14 @@ printf("%.2f\n", confidence);
 void loop()
 {
   // //Serial.println("test");
-  // Button();
-  // switch (state)
-  // {
-  //   case STANDBY:
-  //     standby();
-  //     break;
-  //   case ACTIVE:
-  //     active();
-  //     break;
-  // } 
+   Button();
+   switch (state)
+   {
+     case STANDBY:
+       standby();
+       break;
+     case ACTIVE:
+       active();
+       break;
+   } 
 } 

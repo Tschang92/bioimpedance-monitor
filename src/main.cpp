@@ -24,6 +24,7 @@ This software is based on Analog Devices' example code.
 #include <Arduino_KNN.h>
 #include "fat_data.h"
 #include "csf_data.h"
+#include "other_data.h"
 
 uint32_t MCUPlatformInit(void *pCfg);
 uint32_t temp;
@@ -39,6 +40,7 @@ uint32_t AppBuff[APPBUFF_SIZE];
 
 #define FAT_CLASS 1
 #define CSF_CLASS 2
+#define OTHER_CLASS 3
 
 
 /****************************** Initialize AD5940 basic blocks like clock ************************************/
@@ -128,7 +130,7 @@ void AD5940ImpedanceStructInit(void)
   /* Configure Measurement setup */
   pImpedanceCfg->SinFreq = 100000.0;
   pImpedanceCfg->RcalVal = 1000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_200;
   pImpedanceCfg->DacVoltPP = 600.0; //600.0,
 }
 
@@ -188,7 +190,7 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
       digitalWrite(BUZZER_PIN, HIGH);
     }
     // Needle in other tissue
-    else
+    else if (classification == OTHER_CLASS)
     {
      printf("%s, %f, %f\n", "Other", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
@@ -420,6 +422,12 @@ for (int i = 0; i < sizeof(fat_data) / sizeof(fat_data[0]); i++)
 for (int i = 0; i < sizeof(csf_data) / sizeof(csf_data[0]); i++)
 {
   tissueKNN.addExample(csf_data[i], 2);
+}
+
+// Add example other values to kNN
+for (int i = 0; i < sizeof(other_data) / sizeof(other_data[0]); i++)
+{
+  tissueKNN.addExample(other_data[i], 3);
 }
 
 // get and print KNN count

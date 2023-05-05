@@ -22,8 +22,8 @@ This software is based on Analog Devices' example code.
 #include <math.h>
 #include "impedance.h"
 #include <Arduino_KNN.h>
-#include "FatData.h"
-#include "CsfData.h"
+#include "fat_data.h"
+#include "csf_data.h"
 
 uint32_t MCUPlatformInit(void *pCfg);
 uint32_t temp;
@@ -103,7 +103,7 @@ void AD5940ImpedanceStructInit(void)
 
   
   pImpedanceCfg->DftNum = DFTNUM_16384;
-  pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
+  pImpedanceCfg->NumOfData = -1; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
   pImpedanceCfg->ImpODR = 10;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_2;
@@ -168,13 +168,13 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
     // Use first Data tuple as input for classification
     float input[] = {pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase)};
 
-    int classification = tissueKNN.classify(input, 3);    //classify input with k = 3
+    int classification = tissueKNN.classify(input, 5);    //classify input with k = 3
    // float confidence = tissueKNN.confidence();
 
     // Handle Case if Needle in epidural Space 
     if (classification == FAT_CLASS)
     {
-      printf("%s\n", "Fat");
+      printf("%s, %f, %f\n", "Fat", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, HIGH);
       digitalWrite(LED_RED, LOW);
       digitalWrite(BUZZER_PIN, LOW);
@@ -182,7 +182,7 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
     // Handle Case if Needle in CSF 
     else if (classification == CSF_CLASS)
     {
-      printf("%s\n", "CSF");
+      printf("%s, %f, %f\n", "CSF", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
       digitalWrite(BUZZER_PIN, HIGH);
@@ -190,7 +190,7 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
     // Needle in other tissue
     else
     {
-      printf("%s\n", "Other");
+     printf("%s, %f, %f\n", "Other", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, LOW);
       digitalWrite(BUZZER_PIN, LOW);

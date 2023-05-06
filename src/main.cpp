@@ -399,7 +399,7 @@ void setup()
   
 
 Serial.begin(9600);
-while (!Serial);
+//while (!Serial);    // needs to be deactivated for standalone operation
 
 // add examples to kNN Model
 // float example1[] = { 7.0, 7.0 };

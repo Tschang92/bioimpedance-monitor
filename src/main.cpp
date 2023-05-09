@@ -32,7 +32,7 @@ uint32_t temp;
 #define APPBUFF_SIZE 512
 uint32_t AppBuff[APPBUFF_SIZE];
 
-#define BUZZER_PIN 13
+#define BUZZER_PIN 5
 #define LED_GREEN 12
 #define LED_YELLOW 11
 #define LED_RED 10
@@ -104,9 +104,9 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->MaxSeqLen = 512; /** @todo add checker in function */
 
   
-  pImpedanceCfg->DftNum = DFTNUM_16384;
+  pImpedanceCfg->DftNum = DFTNUM_8192;
   pImpedanceCfg->NumOfData = -1; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
-  pImpedanceCfg->ImpODR = 10;    /* ODR(Sample Rate) 20Hz */
+  pImpedanceCfg->ImpODR = 5;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_2;
   pImpedanceCfg->ADCSinc2Osr = ADCSINC2OSR_22;
@@ -130,7 +130,7 @@ void AD5940ImpedanceStructInit(void)
   /* Configure Measurement setup */
   pImpedanceCfg->SinFreq = 100000.0;
   pImpedanceCfg->RcalVal = 1000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_200;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
   pImpedanceCfg->DacVoltPP = 600.0; //600.0,
 }
 
@@ -147,8 +147,8 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
   /*Process data*/
   for(int i=0;i<DataCount;i++)
   {
-    //printf("RzMag: %f Ohm , RzPhase: %f \n",pImp[i].Magnitude,pImp[i].Phase*180/MATH_PI);
-    printf("RzResistance: %f Ohm , RzReactance: %f Ohm\n",pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+    printf("RzMag: %f Ohm , RzPhase: %f \n",pImp[i].Magnitude,pImp[i].Phase*180/MATH_PI);
+    //printf("RzResistance: %f Ohm , RzReactance: %f Ohm\n",pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
   }
   return 0;
 }
@@ -348,8 +348,8 @@ void active()
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
     AppIMPISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
-    //ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
-    ClassifyTissue(AppBuff, temp);
+    ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
+    //ClassifyTissue(AppBuff, temp);
 
     // Check for Epidural Tissue at Needle Tip
     //isEpidural(AppBuff, temp);
@@ -394,7 +394,7 @@ void setup()
   
    prev_state = NONE;
    state = STANDBY;
-   buttonState = LOW;
+   buttonState = HIGH;
 
   
 

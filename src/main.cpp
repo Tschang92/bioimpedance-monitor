@@ -32,11 +32,11 @@ uint32_t temp;
 #define APPBUFF_SIZE 512
 uint32_t AppBuff[APPBUFF_SIZE];
 
-#define BUZZER_PIN 5
-#define LED_GREEN 12
-#define LED_YELLOW 11
-#define LED_RED 10
-#define BUTTON_PIN 9
+#define BUZZER_PIN 12
+#define LED_GREEN  11
+#define LED_YELLOW 10
+#define LED_RED 9
+#define BUTTON_PIN 13
 
 #define FAT_CLASS 1
 #define CSF_CLASS 2
@@ -188,6 +188,7 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
       digitalWrite(BUZZER_PIN, HIGH);
+      Serial.println(digitalRead(BUZZER_PIN));
     }
     // Needle in other tissue
     else if (classification == OTHER_CLASS)
@@ -348,8 +349,8 @@ void active()
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
     AppIMPISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
-    ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
-    //ClassifyTissue(AppBuff, temp);
+    //ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
+    ClassifyTissue(AppBuff, temp);
 
     // Check for Epidural Tissue at Needle Tip
     //isEpidural(AppBuff, temp);
@@ -380,9 +381,12 @@ void setup()
    // Configure LED pins
    pinMode(LED_GREEN, OUTPUT); 
    pinMode(LED_YELLOW, OUTPUT);
+   pinMode(LED_RED,OUTPUT);
 
    // Configure Button as Input
    pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+   pinMode(BUZZER_PIN, OUTPUT);
 
    MCUPlatformInit(0);
    AD5940_MCUResourceInit(0);
@@ -394,7 +398,7 @@ void setup()
   
    prev_state = NONE;
    state = STANDBY;
-   buttonState = HIGH;
+   buttonState = LOW;
 
   
 

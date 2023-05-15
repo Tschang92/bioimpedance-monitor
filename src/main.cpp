@@ -163,16 +163,18 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
 {
   //float input[] = {0.0, 0.0};
   fImpPol_Type *pImp = (fImpPol_Type*)pData;
+  //printf("%s\n", "test");
 
 
   for (int i=0;i<DataCount;i++)
   {
     // Use first Data tuple as input for classification
     float input[] = {pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase)};
+    //printf("%s\n", "test");
 
     int classification = tissueKNN.classify(input, 5);    //classify input with k = 3
    // float confidence = tissueKNN.confidence();
-
+   
     // Handle Case if Needle in epidural Space 
     if (classification == FAT_CLASS)
     {
@@ -191,13 +193,12 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
       Serial.println(digitalRead(BUZZER_PIN));
     }
     // Needle in other tissue
-    else if (classification == OTHER_CLASS)
-    {
-     printf("%s, %f, %f\n", "Other", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
-      digitalWrite(LED_GREEN, LOW);
-      digitalWrite(LED_RED, LOW);
-      digitalWrite(BUZZER_PIN, LOW);
-    }
+    printf("%s, %f, %f\n", "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+    digitalWrite(LED_YELLOW, LOW);
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(BUZZER_PIN, LOW);
+    
   }
   return 0;
 }

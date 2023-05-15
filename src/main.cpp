@@ -24,7 +24,7 @@ This software is based on Analog Devices' example code.
 #include <Arduino_KNN.h>
 #include "fat_data.h"
 #include "csf_data.h"
-#include "other_data.h"
+
 
 uint32_t MCUPlatformInit(void *pCfg);
 uint32_t temp;
@@ -159,20 +159,18 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
 // Create KNN Classifier with 2 dimensions (Resistance and Reactance)
 KNNClassifier tissueKNN(2);
 
-int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
+int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount, float rejectionThreshold)
 {
   //float input[] = {0.0, 0.0};
   fImpPol_Type *pImp = (fImpPol_Type*)pData;
-  //printf("%s\n", "test");
-
-
+  
   for (int i=0;i<DataCount;i++)
   {
     // Use first Data tuple as input for classification
     float input[] = {pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase)};
     //printf("%s\n", "test");
 
-    int classification = tissueKNN.classify(input, 5);    //classify input with k = 3
+    int classification = tissueKNN.classify(input, 5, rejectionThreshold);    //classify input with k = 3
    // float confidence = tissueKNN.confidence();
    
     // Handle Case if Needle in epidural Space 
@@ -190,59 +188,68 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount)
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
       digitalWrite(BUZZER_PIN, HIGH);
-      Serial.println(digitalRead(BUZZER_PIN));
     }
-    // Needle in other tissue
-    printf("%s, %f, %f\n", "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
-    digitalWrite(LED_YELLOW, LOW);
-    digitalWrite(LED_GREEN, LOW);
-    digitalWrite(LED_RED, LOW);
-    digitalWrite(BUZZER_PIN, LOW);
+    else {
+      // Needle in other tissue
+      printf("%s, %f, %f\n", "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      digitalWrite(LED_GREEN, LOW);
+      digitalWrite(LED_RED, LOW);
+      digitalWrite(BUZZER_PIN, LOW);
+    }
     
   }
   return 0;
 }
 
+// Rejection Criterion (Guttormsson1993)
+/* Rejection Criterion for tissue classification. Calculates maximum distance between any Training Data Point and his nearest Neighbor.*/
+float rejectionThreshold = 0.0;
 
 
 
-// void isEpidural(uint32_t *pData, uint32_t DataCount)
-// {
-//   fImpCar_Type *pImp = (fImpCar_Type *)pData;
+float CalcRejectionThreshold(KNNNode* examples) {
+  float maxDistance = -1.0;
+  // Loop through the examples
+  KNNNode* currentNode = examples;
+  while (currentNode != NULL) {
+    // get data and label of example Node
+    const float* currentValues = currentNode->getValues();
+    int numValues = currentNode->getNumValues();
+    float minDistance = -1.0;
+    
 
-//   // feed data into kNN Model
+    // search nearest Neighbor of current node
+    KNNNode* neighborNode = examples;
+    while (neighborNode != NULL) {
+      if (neighborNode != currentNode) {
+        const float* neighborValues = neighborNode->getValues();
 
-//   // Test
-//   for (int i = 0; i < DataCount; i++)
-//   {
-//     if (pImp[i].Real >= 9000.0)
-//       digitalWrite(LED_GREEN, HIGH);
-//     else
-//       digitalWrite(LED_GREEN, LOW);
-//   }
-// }
+        // Calculate the distance between current node and its neighbor
+        float distance = 0.0;
+        for (int i = 0; i < numValues; i++) {
+          float diff = currentValues[i] - neighborValues[i];
+          distance += diff * diff;
+        }
+        distance = sqrt(distance);
 
+        // Update minimum distance if necessary
+        if (distance < minDistance) {
+          minDistance = distance;
+        }
+      }
 
-// void isCSF(uint32_t *pData, uint32_t DataCount)
-// {
-//   fImpCar_Type *pImp = (fImpCar_Type *)pData;
+      neighborNode = neighborNode->next();
+    }
 
-//   // feed data into kNN Model
+    // Update maximum distance if necessary
+    if (minDistance > maxDistance) {
+      maxDistance = minDistance;
+    }
 
-//   // Test
-//   for (int i = 0; i < DataCount; i++)
-//   {
-//     if (pImp[i].Real < 1000.0)
-//     {
-//       digitalWrite(LED_GREEN, LOW);
-//       digitalWrite(LED_RED, HIGH);
-//       digitalWrite(BUZZER_PIN, HIGH);
-//     }
-//     else
-//       digitalWrite(LED_RED, LOW);
-//       digitalWrite(BUZZER_PIN, HIGH);
-//   }
-// }
+    currentNode = currentNode->next();
+  }
+  return maxDistance;
+}
 
 /******************* BUTTON FUNCTIONS *********************/
 
@@ -351,13 +358,7 @@ void active()
     temp = APPBUFF_SIZE;
     AppIMPISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
     //ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
-    ClassifyTissue(AppBuff, temp);
-
-    // Check for Epidural Tissue at Needle Tip
-    //isEpidural(AppBuff, temp);
-
-    // CHeck for CSF at Needle Tip
-    //isCSF(AppBuff, temp);
+    ClassifyTissue(AppBuff, temp, rejectionThreshold);
   }
 
   // Check for state transitions
@@ -429,32 +430,8 @@ for (int i = 0; i < sizeof(csf_data) / sizeof(csf_data[0]); i++)
   tissueKNN.addExample(csf_data[i], 2);
 }
 
-// Add example other values to kNN
-for (int i = 0; i < sizeof(other_data) / sizeof(other_data[0]); i++)
-{
-  tissueKNN.addExample(other_data[i], 3);
-}
-
-// get and print KNN count
-//printf("\ttissueKNN.getcount() = ");
-//printf("%i\n", tissueKNN.getCount());
-
-
-// Classify input
-// printf("Classifying input\n");
-
-//float input[] = { 4.0, 4.0 };
-
-//int classification = tissueKNN.classify(input, 3);  //classify input with k = 3
-//float confidence = tissueKNN.confidence();
-
-//print classification and confidence
-// printf("classification = ");
-// printf("%i \n", classification);
-
-// printf("confidence = ");
-// printf("%.2f\n", confidence);
-
+// Calculate Rejection Threshold
+rejectionThreshold = CalcRejectionThreshold(tissueKNN.getExamples());
 
 }
 

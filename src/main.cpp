@@ -147,8 +147,8 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
   /*Process data*/
   for(int i=0;i<DataCount;i++)
   {
-    printf("RzMag: %f Ohm , RzPhase: %f \n",pImp[i].Magnitude,pImp[i].Phase*180/MATH_PI);
-    //printf("RzResistance: %f Ohm , RzReactance: %f Ohm\n",pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+    //printf("RzMag: %f Ohm , RzPhase: %f \n",pImp[i].Magnitude,pImp[i].Phase*180/MATH_PI);
+    printf("RzResistance: %f Ohm , RzReactance: %f Ohm\n",pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
   }
   return 0;
 }
@@ -170,13 +170,13 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount, float rejectionThres
     float input[] = {pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase)};
     //printf("%s\n", "test");
 
-    int classification = tissueKNN.classify(input, 5, rejectionThreshold);    //classify input with k = 3
+    int classification = tissueKNN.classify(input, 7, rejectionThreshold);    //classify input with k = 3
    // float confidence = tissueKNN.confidence();
    
     // Handle Case if Needle in epidural Space 
     if (classification == FAT_CLASS)
     {
-      printf("%s, %f, %f\n", "Fat", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      printf("%s, %f,%s, %f, %f\n", "thresh: ", rejectionThreshold, "Fat", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, HIGH);
       digitalWrite(LED_RED, LOW);
       digitalWrite(BUZZER_PIN, LOW);
@@ -184,14 +184,14 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount, float rejectionThres
     // Handle Case if Needle in CSF 
     else if (classification == CSF_CLASS)
     {
-      printf("%s, %f, %f\n", "CSF", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      printf("%s, %f,%s, %f, %f\n", "thresh: ", rejectionThreshold, "CSF", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
       digitalWrite(BUZZER_PIN, HIGH);
     }
     else {
       // Needle in other tissue
-      printf("%s, %f, %f\n", "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      printf("%s, %f,%s, %f, %f\n", "thresh: ", rejectionThreshold, "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, LOW);
       digitalWrite(BUZZER_PIN, LOW);
@@ -215,7 +215,7 @@ float CalcRejectionThreshold(KNNNode* examples) {
     // get data and label of example Node
     const float* currentValues = currentNode->getValues();
     int numValues = currentNode->getNumValues();
-    float minDistance = -1.0;
+    float minDistance = 1000000.0;      // High Values, so that minDistance is definitely updated later
     
 
     // search nearest Neighbor of current node
@@ -432,7 +432,7 @@ for (int i = 0; i < sizeof(csf_data) / sizeof(csf_data[0]); i++)
 
 // Calculate Rejection Threshold
 rejectionThreshold = CalcRejectionThreshold(tissueKNN.getExamples());
-
+rejectionThreshold = 50 * rejectionThreshold; //
 }
 
 void loop()

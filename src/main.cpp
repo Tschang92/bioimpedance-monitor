@@ -405,18 +405,6 @@ void setup()
   
 
 Serial.begin(9600);
-//while (!Serial);    // needs to be deactivated for standalone operation
-
-// add examples to kNN Model
-// float example1[] = { 7.0, 7.0 };
-// float example2[] = { 5.0, 5.0 };
-// float example3[] = { 9.0, 9.0 };
-// float example4[] = { 5.0, 5.0 };
-
-// tissueKNN.addExample(example1, 7);  // add example for class 7
-// tissueKNN.addExample(example2, 5);  // add example for class 5
-// tissueKNN.addExample(example3, 9);  // add example for class 9
-// tissueKNN.addExample(example4, 5);  // add example for class 5
 
 // Add example Fat values to kNN
 for (int i = 0; i < sizeof(fat_data) / sizeof(fat_data[0]); i++)

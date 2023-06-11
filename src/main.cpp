@@ -163,12 +163,14 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount, float rejectionThres
 {
   //float input[] = {0.0, 0.0};
   fImpPol_Type *pImp = (fImpPol_Type*)pData;
+  uint32_t start_time;
+  uint32_t duration;
   
   for (int i=0;i<DataCount;i++)
   {
     // Use first Data tuple as input for classification
     float input[] = {pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase)};
-    //printf("%s\n", "test");
+    start_time = millis();
 
     int classification = tissueKNN.classify(input, 7, rejectionThreshold);    //classify input with k = 3
    // float confidence = tissueKNN.confidence();
@@ -176,7 +178,7 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount, float rejectionThres
     // Handle Case if Needle in epidural Space 
     if (classification == FAT_CLASS)
     {
-      printf("%s, %f,%s, %f, %f\n", "thresh: ", rejectionThreshold, "Fat", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      printf("%s, %f,%s, %f, %f", "thresh: ", rejectionThreshold, "Fat", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, HIGH);
       digitalWrite(LED_RED, LOW);
       digitalWrite(BUZZER_PIN, LOW);
@@ -184,19 +186,20 @@ int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount, float rejectionThres
     // Handle Case if Needle in CSF 
     else if (classification == CSF_CLASS)
     {
-      printf("%s, %f,%s, %f, %f\n", "thresh: ", rejectionThreshold, "CSF", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      printf("%s, %f,%s, %f, %f", "thresh: ", rejectionThreshold, "CSF", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
       digitalWrite(BUZZER_PIN, HIGH);
     }
     else {
       // Needle in other tissue
-      printf("%s, %f,%s, %f, %f\n", "thresh: ", rejectionThreshold, "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      printf("%s, %f,%s, %f, %f", "thresh: ", rejectionThreshold, "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, LOW);
       digitalWrite(BUZZER_PIN, LOW);
     }
-    
+  duration = millis() - start_time;
+  printf("Duration of Classification in ms: %i\n", duration);  
   }
   return 0;
 }

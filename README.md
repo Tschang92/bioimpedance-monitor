@@ -10,7 +10,19 @@ To provide an objective criterion for determining the location of the needle, bi
 The Prototype consists of a AD5941 Analog Frontend by Analog Devices and a Adafruit Feather M0 Microcontroller. The AD5941, passive Electronics and connectors for the electrodes and I/O are placed on a custom PCB, which is designed to directly attach to the microcontroller (similar to an Arduino Shield). The electronics assembly is mounted into a 3D-printed Case.
 
 # Software Components
-The Software is based on the publicly available distribution code for the AD5941 by Analog Devices. The ad5940lib library contains the firmware of the Chip. Additionally, there are Application examples for the AD5941 available for different use cases like measuring impedances or other voltammetric measurements. The example code is written for a different microcontroller, therefore the example code needs to be modified via a porting file. This porting file is based on the work of 
+The Software is based on the publicly available distribution code for the AD5941 by Analog Devices. 
+
+## ad5940lib
+The ad5940lib library contains the firmware for the AD5941. 
+
+## Impedance.c
+This file handles the impedance measurement via the AD5941.
+
+## ArduinoPort_AdafruitFeather.cpp / main_AdafruitPort.cpp
+The provided example code and firmware by Analog Devices are written for a different microcontroller. To make them work with the Adafruit Feather, these porting files are used.
+
+## main.cpp
+This file is the main file, that is running on the microcontroller. It handles the connection between microcontroller and AD5941, initialization of the hardware and measurement parameters, user input, tissue classification algorithm and display of results.  
 
 
 

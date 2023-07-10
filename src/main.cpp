@@ -21,6 +21,10 @@ This software is based on Analog Devices' example code.
 #include <stdlib.h>
 #include <math.h>
 #include "impedance.h"
+#include <Arduino_KNN.h>
+#include "fat_data.h"
+#include "csf_data.h"
+
 
 uint32_t MCUPlatformInit(void *pCfg);
 uint32_t temp;
@@ -28,12 +32,15 @@ uint32_t temp;
 #define APPBUFF_SIZE 512
 uint32_t AppBuff[APPBUFF_SIZE];
 
-#define BUZZER_PIN 13
-#define LED_GREEN 12
-#define LED_YELLOW 11
-#define LED_RED 10
-#define BUTTON_PIN 9
+#define BUZZER_PIN 12
+#define LED_GREEN  11
+#define LED_YELLOW 10
+#define LED_RED 9
+#define BUTTON_PIN 13
 
+#define FAT_CLASS 1
+#define CSF_CLASS 2
+#define OTHER_CLASS 3
 
 
 /****************************** Initialize AD5940 basic blocks like clock ************************************/
@@ -97,8 +104,8 @@ void AD5940ImpedanceStructInit(void)
   pImpedanceCfg->MaxSeqLen = 512; /** @todo add checker in function */
 
   
-  pImpedanceCfg->DftNum = DFTNUM_16384;
-  pImpedanceCfg->NumOfData = 100; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
+  pImpedanceCfg->DftNum = DFTNUM_8192;
+  pImpedanceCfg->NumOfData = -1; /* Never stop until you stop it manually by AppImpedanceCtrl() function */
   pImpedanceCfg->ImpODR = 5;    /* ODR(Sample Rate) 20Hz */
   pImpedanceCfg->FifoThresh = 4; /* 4 */
   pImpedanceCfg->ADCSinc3Osr = ADCSINC3OSR_2;
@@ -113,7 +120,7 @@ void AD5940ImpedanceStructInit(void)
   
   pImpedanceCfg->PwrMod = AFEPWR_HP;
 
-  pImpedanceCfg->SweepCfg.SweepEn = bTRUE,
+  pImpedanceCfg->SweepCfg.SweepEn = bFALSE,
   pImpedanceCfg->SweepCfg.SweepStart = 1000,
   pImpedanceCfg->SweepCfg.SweepStop = 100000.0,
   pImpedanceCfg->SweepCfg.SweepPoints = 100,
@@ -122,8 +129,8 @@ void AD5940ImpedanceStructInit(void)
 
   /* Configure Measurement setup */
   pImpedanceCfg->SinFreq = 100000.0;
-  pImpedanceCfg->RcalVal = 10000.0;
-  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_10K;
+  pImpedanceCfg->RcalVal = 1000.0;
+  pImpedanceCfg->HstiaRtiaSel = HSTIARTIA_1K;
   pImpedanceCfg->DacVoltPP = 600.0; //600.0,
 }
 
@@ -149,42 +156,102 @@ int32_t ImpedanceShowResult(uint32_t *pData, uint32_t DataCount)
 
 /****************************** Tissue Classification *********************************/
 
-void isEpidural(uint32_t *pData, uint32_t DataCount)
+// Create KNN Classifier with 2 dimensions (Resistance and Reactance)
+KNNClassifier tissueKNN(2);
+
+int32_t ClassifyTissue(uint32_t *pData, uint32_t DataCount, float rejectionThreshold)
 {
-  fImpCar_Type *pImp = (fImpCar_Type *)pData;
-
-  // feed data into kNN Model
-
-  // Test
-  for (int i = 0; i < DataCount; i++)
+  //float input[] = {0.0, 0.0};
+  fImpPol_Type *pImp = (fImpPol_Type*)pData;
+  uint32_t start_time;
+  uint32_t duration;
+  
+  for (int i=0;i<DataCount;i++)
   {
-    if (pImp[i].Real >= 9000.0)
-      digitalWrite(LED_GREEN, HIGH);
-    else
-      digitalWrite(LED_GREEN, LOW);
-  }
-}
+    // Use first Data tuple as input for classification
+    float input[] = {pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase)};
+    start_time = millis();
 
-
-void isCSF(uint32_t *pData, uint32_t DataCount)
-{
-  fImpCar_Type *pImp = (fImpCar_Type *)pData;
-
-  // feed data into kNN Model
-
-  // Test
-  for (int i = 0; i < DataCount; i++)
-  {
-    if (pImp[i].Real < 1000.0)
+    int classification = tissueKNN.classify(input, 7, rejectionThreshold);    //classify input with k = 3
+   // float confidence = tissueKNN.confidence();
+   
+    // Handle Case if Needle in epidural Space 
+    if (classification == FAT_CLASS)
     {
+      printf("%s, %f,%s, %f, %f", "thresh: ", rejectionThreshold, "Fat", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      digitalWrite(LED_GREEN, HIGH);
+      digitalWrite(LED_RED, LOW);
+      digitalWrite(BUZZER_PIN, LOW);
+    }
+    // Handle Case if Needle in CSF 
+    else if (classification == CSF_CLASS)
+    {
+      printf("%s, %f,%s, %f, %f", "thresh: ", rejectionThreshold, "CSF", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
       digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, HIGH);
       digitalWrite(BUZZER_PIN, HIGH);
     }
-    else
+    else {
+      // Needle in other tissue
+      printf("%s, %f,%s, %f, %f", "thresh: ", rejectionThreshold, "unknown tissue", pImp[i].Magnitude * cos(pImp[i].Phase), pImp[i].Magnitude * sin(pImp[i].Phase));
+      digitalWrite(LED_GREEN, LOW);
       digitalWrite(LED_RED, LOW);
-      digitalWrite(BUZZER_PIN, HIGH);
+      digitalWrite(BUZZER_PIN, LOW);
+    }
+  duration = millis() - start_time;
+  printf("Duration of Classification in ms: %i\n", duration);  
   }
+  return 0;
+}
+
+// Rejection Criterion (Guttormsson1993)
+/* Rejection Criterion for tissue classification. Calculates maximum distance between any Training Data Point and his nearest Neighbor.*/
+float rejectionThreshold = 0.0;
+
+
+
+float CalcRejectionThreshold(KNNNode* examples) {
+  float maxDistance = -1.0;
+  // Loop through the examples
+  KNNNode* currentNode = examples;
+  while (currentNode != NULL) {
+    // get data and label of example Node
+    const float* currentValues = currentNode->getValues();
+    int numValues = currentNode->getNumValues();
+    float minDistance = 1000000.0;      // High Values, so that minDistance is definitely updated later
+    
+
+    // search nearest Neighbor of current node
+    KNNNode* neighborNode = examples;
+    while (neighborNode != NULL) {
+      if (neighborNode != currentNode) {
+        const float* neighborValues = neighborNode->getValues();
+
+        // Calculate the distance between current node and its neighbor
+        float distance = 0.0;
+        for (int i = 0; i < numValues; i++) {
+          float diff = currentValues[i] - neighborValues[i];
+          distance += diff * diff;
+        }
+        distance = sqrt(distance);
+
+        // Update minimum distance if necessary
+        if (distance < minDistance) {
+          minDistance = distance;
+        }
+      }
+
+      neighborNode = neighborNode->next();
+    }
+
+    // Update maximum distance if necessary
+    if (minDistance > maxDistance) {
+      maxDistance = minDistance;
+    }
+
+    currentNode = currentNode->next();
+  }
+  return maxDistance;
 }
 
 /******************* BUTTON FUNCTIONS *********************/
@@ -293,13 +360,8 @@ void active()
     AD5940_ClrMCUIntFlag(); /* Clear this flag */
     temp = APPBUFF_SIZE;
     AppIMPISR(AppBuff, &temp);    /* Deal with it and provide a buffer to store data we got */
-    ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
-
-    // Check for Epidural Tissue at Needle Tip
-    isEpidural(AppBuff, temp);
-
-    // CHeck for CSF at Needle Tip
-    isCSF(AppBuff, temp);
+    //ImpedanceShowResult(AppBuff, temp); /* Show the results to UART */
+    ClassifyTissue(AppBuff, temp, rejectionThreshold);
   }
 
   // Check for state transitions
@@ -314,41 +376,67 @@ void active()
   }
 }
 
+
+
 /****************** SETUP AND LOOP ***********************/
 
 void setup()
 {
 
-  // Configure LED pins
-  pinMode(LED_GREEN, OUTPUT); 
-  pinMode(LED_YELLOW, OUTPUT);
+   // Configure LED pins
+   pinMode(LED_GREEN, OUTPUT); 
+   pinMode(LED_YELLOW, OUTPUT);
+   pinMode(LED_RED,OUTPUT);
 
-  // Configure Button as Input
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
+   // Configure Button as Input
+   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  MCUPlatformInit(0);
-  AD5940_MCUResourceInit(0);
-  // AD5940_HWReset();
-  // AD5940_Initialize();
-  AD5940PlatformCfg();
-  AD5940ImpedanceStructInit();             /* Configure your parameters in this function */
-  AppIMPInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
+   pinMode(BUZZER_PIN, OUTPUT);
+
+   MCUPlatformInit(0);
+   AD5940_MCUResourceInit(0);
+   // AD5940_HWReset();
+   // AD5940_Initialize();
+   AD5940PlatformCfg();
+   AD5940ImpedanceStructInit();             /* Configure your parameters in this function */
+   AppIMPInit(AppBuff, APPBUFF_SIZE); /* Initialize BIOZ application. Provide a buffer, which is used to store sequencer commands */
   
-  prev_state = NONE;
-  state = STANDBY;
-  buttonState = LOW;
+   prev_state = NONE;
+   state = STANDBY;
+   buttonState = LOW;
+
+  
+
+Serial.begin(9600);
+
+// Add example Fat values to kNN
+for (int i = 0; i < sizeof(fat_data) / sizeof(fat_data[0]); i++)
+{
+  tissueKNN.addExample(fat_data[i], 1);
+}
+
+// Add example CSF values to kNN
+for (int i = 0; i < sizeof(csf_data) / sizeof(csf_data[0]); i++)
+{
+  tissueKNN.addExample(csf_data[i], 2);
+}
+
+// Calculate Rejection Threshold
+rejectionThreshold = CalcRejectionThreshold(tissueKNN.getExamples());
+rejectionThreshold = 50 * rejectionThreshold; //
 }
 
 void loop()
 {
-  Button();
-  switch (state)
-  {
-    case STANDBY:
-      standby();
-      break;
-    case ACTIVE:
-      active();
-      break;
-  } 
+  // //Serial.println("test");
+   Button();
+   switch (state)
+   {
+     case STANDBY:
+       standby();
+       break;
+     case ACTIVE:
+       active();
+       break;
+   } 
 } 
